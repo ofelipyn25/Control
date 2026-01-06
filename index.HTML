@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CONTROL</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f7;
+            color: #1d1d1f;
+            min-height: 100vh;
+        }
+
+        /* Header */
+        header {
+            position: sticky;
+            top: 0;
+            background: rgba(255,255,255,0.92);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            padding: 14px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            z-index: 100;
+            border-bottom: 1px solid #e5e5e5;
+        }
+
+        .menu-btn {
+            font-size: 1.8rem;
+            cursor: pointer;
+            padding: 8px;
+        }
+
+        .title {
+            font-size: 1.6rem;
+            font-weight: 700;
+            flex: 1;
+            text-align: center;
+            margin-left: -40px;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: -280px;
+            width: 280px;
+            height: 100%;
+            background: white;
+            box-shadow: 2px 0 12px rgba(0,0,0,0.15);
+            transition: left 0.3s ease;
+            z-index: 200;
+            padding-top: 60px;
+        }
+
+        .sidebar.open { left: 0; }
+
+        .sidebar-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.4);
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s;
+            z-index: 150;
+        }
+
+        .sidebar-overlay.open {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .sidebar-item {
+            padding: 16px 20px;
+            font-size: 1.05rem;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            cursor: pointer;
+        }
+
+        .sidebar-item:hover {
+            background: #f0f0f5;
+        }
+
+        .sidebar-item.active {
+            background: #e8f0fe;
+            color: #007aff;
+            font-weight: 600;
+        }
+
+        /* Conteúdo principal */
+        .container {
+            padding: 16px;
+        }
+
+        .screen {
+            display: none;
+        }
+
+        .screen.active {
+            display: block;
+        }
+
+        h2 {
+            font-size: 1.5rem;
+            margin: 16px 0 20px;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        /* Dashboard */
+        .summary-cards {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        @media (max-width: 600px) {
+            .summary-cards {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: white;
+            border-radius: 14px;
+            padding: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            text-align: center;
+        }
+
+        .card-label {
+            font-size: 0.9rem;
+            color: #6e6e73;
+            margin-bottom: 6px;
+        }
+
+        .card-value {
+            font-size: 1.6rem;
+            font-weight: 600;
+        }
+
+        .positive { color: #34c759; }
+        .negative { color: #ff3b30; }
+
+        /* Legenda na lista */
+        .legend-balloon {
+            background: white;
+            border-radius: 14px;
+            padding: 14px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            font-size: 0.95rem;
+            color: #6e6e73;
+            text-align: center;
+        }
+
+        .legend-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin: 8px 12px;
+        }
+
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #34c759;
+        }
+
+        .legend-color.expense {
+            background: #ff3b30;
+        }
+
+        /* Balões flutuantes na nova transação - SEM ÍCONES */
+        .type-balloons {
+            display: flex;
+            gap: 16px;
+            margin: 30px 0 40px;
+            justify-content: center;
+        }
+
+        .type-balloon {
+            flex: 1;
+            max-width: 200px;
+            padding: 32px 20px;
+            border-radius: 24px;
+            text-align: center;
+            font-size: 1.6rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+            user-select: none;
+        }
+
+        .type-balloon.income {
+            background: #e6f7e9;
+            color: #34c759;
+            border: 3px solid transparent;
+        }
+
+        .type-balloon.expense {
+            background: #fde8e8;
+            color: #ff3b30;
+            border: 3px solid transparent;
+        }
+
+        .type-balloon.selected {
+            transform: scale(1.1);
+            box-shadow: 0 12px 28px rgba(0,0,0,0.2);
+        }
+
+        .type-balloon.selected.income {
+            border-color: #34c759;
+            background: #d0f5d8;
+        }
+
+        .type-balloon.selected.expense {
+            border-color: #ff3b30;
+            background: #fad0d0;
+        }
+
+        /* Formulário */
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        input, select {
+            padding: 14px;
+            border: 1px solid #d2d2d7;
+            border-radius: 10px;
+            font-size: 1rem;
+            background: white;
+        }
+
+        button {
+            padding: 14px;
+            background: #007aff;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.05rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        /* Lista de transações */
+        .transaction-item {
+            background: white;
+            padding: 14px;
+            margin-bottom: 10px;
+            border-radius: 12px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+        }
+
+        .income { color: #34c759; font-weight: 600; }
+        .expense { color: #ff3b30; font-weight: 600; }
+    </style>
+    <link rel="manifest" href="manifest.json">
+
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="CONTROL">
+
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="manifest" href="manifest.json">
+
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0f172a">
+
+</head>
+<body>
+
+<header>
+    <div class="menu-btn" onclick="toggleSidebar()">☰</div>
+    <div class="title">CONTROL</div>
+    <div style="width:40px"></div>
+</header>
+
+<div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+<div class="sidebar" id="sidebar">
+    <div class="sidebar-item active" onclick="showScreen('dashboard')">
+        <span>🏠</span> Dashboard
+    </div>
+    <div class="sidebar-item" onclick="showScreen('add')">
+        <span>➕</span> Nova Transação
+    </div>
+    <div class="sidebar-item" onclick="showScreen('list')">
+        <span>📋</span> Todas Transações
+    </div>
+    <div class="sidebar-item" onclick="exportToExcel(); toggleSidebar();">
+        <span>📊</span> Exportar Excel
+    </div>
+</div>
+
+<div class="container">
+
+    <!-- Dashboard -->
+    <div id="dashboard" class="screen active">
+        <h2>Dashboard</h2>
+        
+        <div class="summary-cards">
+            <div class="card">
+                <div class="card-label">Receitas</div>
+                <div class="card-value positive" id="total-income">R$ 0,00</div>
+            </div>
+            <div class="card">
+                <div class="card-label">Despesas</div>
+                <div class="card-value negative" id="total-expense">R$ 0,00</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Nova Transação com balões apenas com texto -->
+    <div id="add" class="screen">
+        <h2>Nova Transação</h2>
+
+        <!-- Balões grandes com apenas o nome -->
+        <div class="type-balloons">
+            <div class="type-balloon income" onclick="selectType('receita')">
+                Receita
+            </div>
+            <div class="type-balloon expense" onclick="selectType('despesa')">
+                Despesa
+            </div>
+        </div>
+
+        <form id="transaction-form">
+            <input type="hidden" id="type" value="">
+            <input type="date" id="date" required>
+            <input type="text" id="description" placeholder="Descrição" required>
+            <input type="text" id="location" placeholder="Local (opcional)">
+            <input type="number" id="value" placeholder="Valor" step="0.01" min="0.01" required>
+            <select id="method" required>
+                <option value="">Método</option>
+                <option value="Dinheiro">Dinheiro</option>
+                <option value="Débito">Débito</option>
+                <option value="Crédito">Crédito</option>
+                <option value="PIX">PIX</option>
+                <option value="Outro">Outro</option>
+            </select>
+            <button type="submit">Salvar</button>
+        </form>
+    </div>
+
+    <!-- Lista com legenda -->
+    <div id="list" class="screen">
+        <h2>Todas as Transações</h2>
+
+        <div class="legend-balloon">
+            <div>Legenda:</div>
+            <div class="legend-item">
+                <div class="legend-color"></div>
+                <span>Receita (+)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color expense"></div>
+                <span>Despesa (-)</span>
+            </div>
+        </div>
+
+        <div id="transaction-list"></div>
+    </div>
+
+</div>
+
+<script>
+// =============================================
+// LocalStorage
+// =============================================
+
+function getTransactions() {
+    return JSON.parse(localStorage.getItem('transactions') || '[]');
+}
+
+function saveTransactions(trans) {
+    localStorage.setItem('transactions', JSON.stringify(trans));
+}
+
+function formatCurrency(value) {
+    return Number(value).toLocaleString('pt-BR', { 
+        style: 'currency', 
+        currency: 'BRL' 
+    });
+}
+
+// =============================================
+// Navegação
+// =============================================
+
+function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('open');
+    document.querySelector('.sidebar-overlay').classList.toggle('open');
+}
+
+function showScreen(screenId) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(screenId).classList.add('active');
+    
+    document.querySelectorAll('.sidebar-item').forEach(item => item.classList.remove('active'));
+    if (event?.currentTarget) {
+        event.currentTarget.classList.add('active');
+    }
+    
+    if (screenId === 'dashboard') updateDashboard();
+    if (screenId === 'list') updateTransactionList();
+    if (screenId === 'add') resetTypeSelection();
+    
+    toggleSidebar();
+}
+
+// =============================================
+// Seleção de tipo com balões (apenas texto)
+// =============================================
+
+function selectType(type) {
+    document.querySelectorAll('.type-balloon').forEach(b => b.classList.remove('selected'));
+    
+    if (type === 'receita') {
+        document.querySelector('.type-balloon.income').classList.add('selected');
+    } else {
+        document.querySelector('.type-balloon.expense').classList.add('selected');
+    }
+    
+    document.getElementById('type').value = type;
+}
+
+function resetTypeSelection() {
+    document.querySelectorAll('.type-balloon').forEach(b => b.classList.remove('selected'));
+    document.getElementById('type').value = '';
+}
+
+// =============================================
+// Dashboard
+// =============================================
+
+function updateDashboard() {
+    const transactions = getTransactions();
+    
+    let totalIncome = 0;
+    let totalExpense = 0;
+
+    transactions.forEach(t => {
+        const value = Number(t.value);
+        if (t.type === 'receita') {
+            totalIncome += value;
+        } else if (t.type === 'despesa') {
+            totalExpense += value;
+        }
+    });
+
+    document.getElementById('total-income').textContent = formatCurrency(totalIncome);
+    document.getElementById('total-expense').textContent = formatCurrency(totalExpense);
+}
+
+// =============================================
+// Lista de transações
+// =============================================
+
+function updateTransactionList() {
+    const transactions = getTransactions();
+    const container = document.getElementById('transaction-list');
+    container.innerHTML = '';
+
+    transactions.sort((a,b) => b.date.localeCompare(a.date));
+
+    transactions.forEach(t => {
+        const div = document.createElement('div');
+        div.className = 'transaction-item';
+        div.innerHTML = `
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+                <div>
+                    <strong>${t.date}</strong><br>
+                    ${t.description}
+                    ${t.location ? `<br><small style="color:#8e8e93;">📍 ${t.location}</small>` : ''}
+                </div>
+                <div style="text-align:right;">
+                    <div class="${t.type === 'receita' ? 'income' : 'expense'}">
+                        ${t.type === 'receita' ? '+' : '-'} ${formatCurrency(t.value)}
+                    </div>
+                    <small style="color:#8e8e93;">${t.method}</small>
+                </div>
+            </div>
+        `;
+        container.appendChild(div);
+    });
+
+    if (transactions.length === 0) {
+        container.innerHTML = '<p style="text-align:center; color:#8e8e93; padding:20px;">Nenhuma transação cadastrada ainda.</p>';
+    }
+}
+
+// =============================================
+// Formulário
+// =============================================
+
+document.getElementById('transaction-form').addEventListener('submit', e => {
+    e.preventDefault();
+    
+    const type = document.getElementById('type').value;
+    const value = document.getElementById('value').value;
+
+    if (!type) {
+        alert('Por favor, selecione o tipo da transação tocando em Receita ou Despesa.');
+        return;
+    }
+    if (!value || Number(value) <= 0) {
+        alert('Por favor, insira um valor maior que zero.');
+        return;
+    }
+
+    const transactions = getTransactions();
+    
+    transactions.push({
+        type: type,
+        date: document.getElementById('date').value,
+        description: document.getElementById('description').value,
+        location: document.getElementById('location').value.trim() || null,
+        value: value,
+        method: document.getElementById('method').value
+    });
+
+    saveTransactions(transactions);
+    e.target.reset();
+    document.getElementById('date').value = new Date().toISOString().split('T')[0];
+    resetTypeSelection();
+    
+    showScreen('dashboard');
+});
+
+// =============================================
+// Exportação Excel
+// =============================================
+
+function exportToExcel() {
+    const transactions = getTransactions();
+    
+    const data = [["Data", "Tipo", "Descrição", "Local", "Valor", "Método"]];
+    
+    transactions.forEach(t => {
+        data.push([
+            t.date,
+            t.type === 'receita' ? 'Receita' : 'Despesa',
+            t.description,
+            t.location || '',
+            Number(t.value),
+            t.method
+        ]);
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Transações");
+    XLSX.writeFile(wb, `CONTROL-${new Date().toISOString().split('T')[0]}.xlsx`);
+}
+
+// =============================================
+// Inicialização
+// =============================================
+
+document.getElementById('date').value = new Date().toISOString().split('T')[0];
+
+updateDashboard();
+updateTransactionList();
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js');
+  });
+}
+</script>
+
+</body>
+</html>
